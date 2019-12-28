@@ -47,7 +47,7 @@ namespace dlech.SshAgentLib
     /// <summary>
     /// Adds Agent.KeyConstraintType.SSH_AGENT_CONSTRAIN_CONFIRM constraint to key
     /// </summary>
-    public static void addConfirmConstraint(this ICollection<Agent.KeyConstraint> keyCollection)
+    public static void AddConfirmConstraint(this ICollection<Agent.KeyConstraint> keyCollection)
     {
       var constraint = new Agent.KeyConstraint();
       constraint.Type = Agent.KeyConstraintType.SSH_AGENT_CONSTRAIN_CONFIRM;
@@ -57,13 +57,13 @@ namespace dlech.SshAgentLib
     /// <summary>
     /// Adds Agent.KeyConstraintType.SSH_AGENT_CONSTRAIN_LIFETIME constraint to key
     /// </summary>
-    public static void addLifetimeConstraint(this ICollection<Agent.KeyConstraint> keyCollection, uint lifetime)
+    public static void AddLifetimeConstraint(this ICollection<Agent.KeyConstraint> keyCollection, uint lifetime)
     {
       var constraint = new Agent.KeyConstraint();
       constraint.Type = Agent.KeyConstraintType.SSH_AGENT_CONSTRAIN_LIFETIME;
       constraint.Data = lifetime;
       keyCollection.Add(constraint);
-    }    
+    }
 
     /// <summary>
     /// Gets the Type of the Data object for a given Agent.KeyConstraintType
@@ -224,32 +224,14 @@ namespace dlech.SshAgentLib
     }
 
     /// <summary>
-    /// Converts array of bytes to a string of hexadecimal digits delimited by':'. Alpha digits will be lower case.
+    /// Converts array of bytes to a string of hexadecimal digits delimited
+    /// by':'. Alpha digits will be lower case.
     /// </summary>
     /// <param name="bytes">the byte[] to convert</param>
     /// <returns>the resulting string</returns>
     public static string ToHexString(this byte[] bytes)
     {
-      return bytes.ToHexString(":");
-    }
-
-    /// <summary>
-    /// Converts array of bytes to a string of hexadecimal digits. Alpha digits will be lower case.
-    /// </summary>
-    /// <param name="bytes">the byte[] to convert</param>
-    /// <param name="delimeter">a delimiter to insert in-between each pair of digits</param>
-    /// <returns>the resulting string</returns>
-    public static string ToHexString(this byte[] bytes, string delimeter)
-    {
-      if (bytes == null) {
-        throw new ArgumentNullException("bytes");
-      }
-      int length = bytes.Length;
-      string[] strings = new string[length];
-      for (int i = 0; i < length; i++) {
-        strings[i] = string.Format("{0:x2}", bytes[i]);
-      }
-      return string.Join(delimeter, strings);
+      return BitConverter.ToString(bytes).ToLowerInvariant().Replace("-", ":");
     }
 
     public static byte[] FromBase64(string base64String)
@@ -312,6 +294,29 @@ namespace dlech.SshAgentLib
         list[i] = 0;
       }
       list.Clear();
+    }
+
+    static int Chmod(string path, int mode)
+    {
+      // This has to be in a separate method because on Windows we will get
+      // a FileNotFoundException when the method is loaded if Mono is not present.
+      return Mono.Unix.Native.Syscall.chmod(path, (Mono.Unix.Native.FilePermissions)mode);
+    }
+
+    /// <summary>
+    /// Wrapper around Mono.Unix chmod.
+    /// </summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="mode">The file mode.</param>
+    public static bool TryChmod(string path, int mode)
+    {
+      try {
+        var ret = Chmod(path, mode);
+        return ret == 0;
+      }
+      catch {
+        return false;
+      }
     }
 
     /// <summary>

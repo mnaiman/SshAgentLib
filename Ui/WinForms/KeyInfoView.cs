@@ -213,8 +213,7 @@ namespace dlech.SshAgentLib.WinForms
         var lifetimeConstraintCheckBox =
           new CommonFileDialogCheckBox (cLifetimeConstraintCheckBox,
           "Set lifetime (in seconds)");
-        lifetimeConstraintCheckBox.CheckedChanged +=
-          delegate(object aSender, EventArgs aEventArgs) {
+        lifetimeConstraintCheckBox.CheckedChanged += (s, e) => {
           lifetimeConstraintTextBox.Visible =
               lifetimeConstraintCheckBox.IsChecked;
         };
@@ -334,10 +333,10 @@ namespace dlech.SshAgentLib.WinForms
               constraintDialog.ShowDialog ();
               if (constraintDialog.DialogResult == DialogResult.OK) {
                 if (constraintDialog.ConfirmConstraintChecked) {
-                  constraints.addConfirmConstraint ();
+                  constraints.AddConfirmConstraint ();
                 }
                 if (constraintDialog.LifetimeConstraintChecked) {
-                  constraints.addLifetimeConstraint (constraintDialog.LifetimeDuration);
+                  constraints.AddLifetimeConstraint (constraintDialog.LifetimeDuration);
                 }
               }
             }
@@ -345,10 +344,10 @@ namespace dlech.SshAgentLib.WinForms
             mOpenFileDialogMap.Remove (openFileDialog);
 
             if (xpOpenFileDialog.UseConfirmConstraintChecked) {
-              constraints.addConfirmConstraint ();
+              constraints.AddConfirmConstraint ();
             }
             if (xpOpenFileDialog.UseLifetimeConstraintChecked) {
-              constraints.addLifetimeConstraint
+              constraints.AddLifetimeConstraint
                 (xpOpenFileDialog.LifetimeConstraintDuration);
             }
           }
@@ -433,13 +432,13 @@ namespace dlech.SshAgentLib.WinForms
         !isLocked;
     }
 
-    private void AgentLockHandler(object aSender, Agent.LockEventArgs aArgs)
+    private void AgentLockHandler(object sender, Agent.LockEventArgs e)
     {
       if (InvokeRequired)
       {
         Invoke((MethodInvoker)delegate()
         {
-          AgentLockHandler(aSender, aArgs);
+          AgentLockHandler(sender, e);
         });
         return;
       }
@@ -523,10 +522,10 @@ namespace dlech.SshAgentLib.WinForms
             dialog.ShowDialog();
             if (dialog.DialogResult == DialogResult.OK) {
               if (dialog.ConfirmConstraintChecked) {
-                constraints.addConfirmConstraint();
+                constraints.AddConfirmConstraint();
               }
               if (dialog.LifetimeConstraintChecked) {
-                constraints.addLifetimeConstraint(dialog.LifetimeDuration);
+                constraints.AddLifetimeConstraint(dialog.LifetimeDuration);
               }
             }
           }

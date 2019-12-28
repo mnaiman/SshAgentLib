@@ -4,7 +4,7 @@
 // Author(s): David Lechner <david@lechnology.com>
 //            Max Laverse
 //
-// Copyright (c) 2012-2015,2017 David Lechner
+// Copyright (c) 2012-2015,2017-2018 David Lechner
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -124,6 +124,10 @@ namespace dlech.SshAgentLib
       SSH2_AGENT_IDENTITIES_ANSWER = 12,
       SSH2_AGENT_SIGN_RESPONSE = 14,
 
+      /* Extensions */
+      SSH_AGENTC_EXTENSION = 27,
+      SSH_AGENT_EXTENSION_FAILURE = 28,
+
       UNKNOWN = 255
     }
 
@@ -131,15 +135,18 @@ namespace dlech.SshAgentLib
     {
       /* Key constraint identifiers */
       SSH_AGENT_CONSTRAIN_LIFETIME = 1,
-      SSH_AGENT_CONSTRAIN_CONFIRM = 2
+      SSH_AGENT_CONSTRAIN_CONFIRM = 2,
+      SSH_AGENT_CONSTRAIN_EXTENSION = 3,
     }
 
-    [Flags()]
+    [Flags]
     public enum SignRequestFlags : uint
     {
-      SSH_AGENT_OLD_SIGNATURE = 1
+      SSH_AGENT_OLD_SIGNATURE = 0x01,
+      SSH_AGENT_RSA_SHA2_256 = 0x02,
+      SSH_AGENT_RSA_SHA2_512 = 0x04,
     }
-    
+
     #endregion
 
     #region Data Types
@@ -183,9 +190,9 @@ namespace dlech.SshAgentLib
     /// <summary>
     /// Handles events when Agent is locked and unlocked
     /// </summary>
-    /// <param name="aSender"></param>
-    /// <param name="aEventArgs"></param>
-    public delegate void LockEventHandler(object aSender, LockEventArgs aEventArgs);
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    public delegate void LockEventHandler(object sender, LockEventArgs e);
 
     public class MessageReceivedEventArgs : EventArgs
     {
@@ -207,8 +214,7 @@ namespace dlech.SshAgentLib
       public bool Fail { get; set; }
     }
 
-    public delegate void MessageReceivedEventHandler(object aSender,
-     MessageReceivedEventArgs aEventArgs);
+    public delegate void MessageReceivedEventHandler(object sender, MessageReceivedEventArgs e);
 
     public class KeyUsedEventArgs : EventArgs
     {
@@ -222,8 +228,7 @@ namespace dlech.SshAgentLib
       }
     }
 
-    public delegate void KeyUsedEventHandler(object aSender,
-      KeyUsedEventArgs aEventArgs);
+    public delegate void KeyUsedEventHandler(object sender, KeyUsedEventArgs e);
 
     /// <summary>
     /// Requests user for permission to use specified key.
@@ -237,11 +242,11 @@ namespace dlech.SshAgentLib
     public delegate bool ConfirmUserPermissionDelegate(ISshKey key, Process process);
 
     /// <summary>
-    /// Filters the list of keys that will be returned by the request identites
+    /// Filters the list of keys that will be returned by the request identities
     /// messages.
     /// </summary>
     /// <param name="keyList">The list of keys to filter.</param>
-    /// <returns>A filterd list of keys.</returns>
+    /// <returns>A filtered list of keys.</returns>
     public delegate ICollection<ISshKey> FilterKeyListDelegate(ICollection<ISshKey> keyList);
 
     #endregion
@@ -293,8 +298,7 @@ namespace dlech.SshAgentLib
           UInt32 lifetime = (UInt32)constraint.Data * 1000;
           Timer timer = new Timer(lifetime);
           ElapsedEventHandler onTimerElapsed = null;
-          onTimerElapsed =
-            delegate(object aSender, ElapsedEventArgs aEventArgs)
+          onTimerElapsed = (s, e) =>
             {
               timer.Elapsed -= onTimerElapsed;
               RemoveKey(key);
@@ -547,16 +551,27 @@ namespace dlech.SshAgentLib
 
             /* create signature */
             var signKey = matchingKey;
-            var signer = signKey.GetSigner();
-            var algName = signKey.Algorithm.GetIdentifierString();
+            var signer = signKey.GetSigner(flags);
             signer.Init(true, signKey.GetPrivateKeyParameters());
             signer.BlockUpdate(reqData, 0, reqData.Length);
             byte[] signature = signer.GenerateSignature();
             signature = signKey.FormatSignature(signature);
             BlobBuilder signatureBuilder = new BlobBuilder();
+
             if (!flags.HasFlag(SignRequestFlags.SSH_AGENT_OLD_SIGNATURE)) {
+              var algName = signKey.Algorithm.GetIdentifierString();
+
+              // handle possible overridden signer (because of flags)
+              if (signer.AlgorithmName == "SHA-512withRSA") {
+                algName = "rsa-sha2-512";
+              }
+              else if (signer.AlgorithmName == "SHA-256withRSA") {
+                algName = "rsa-sha2-256";
+              }
+
               signatureBuilder.AddStringBlob(algName);
             }
+
             signatureBuilder.AddBlob(signature);
             responseBuilder.AddBlob(signatureBuilder.GetBlob());
             responseBuilder.InsertHeader(Message.SSH2_AGENT_SIGN_RESPONSE);
